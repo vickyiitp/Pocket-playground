@@ -1,0 +1,292 @@
+
+{
+  "apiContracts": {
+    "restEndpoints": [
+      {
+        "path": "/session/start",
+        "method": "POST",
+        "description": "Initializes a new user session, requiring an intent. Returns a session ID and a server-enforced duration.",
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "start_type": { "type": "string", "enum": ["intent", "passive"] },
+            "user_intent": { "type": "string", "description": "e.g., 'Quick 5-min Break', 'Learn Something New'" }
+          },
+          "required": ["start_type", "user_intent"]
+        },
+        "successResponse": {
+          "statusCode": 200,
+          "body": {
+            "type": "object",
+            "properties": {
+              "session_id": { "type": "string", "format": "uuid" },
+              "session_duration_seconds": { "type": "integer", "description": "Server-defined duration based on intent." },
+              "extensions_remaining": { "type": "integer" }
+            }
+          }
+        },
+        "errorResponse": {
+          "statusCode": 400,
+          "body": { "error": "Invalid intent or start_type." }
+        }
+      },
+      {
+        "path": "/session/extend",
+        "method": "POST",
+        "description": "Requests a short extension for the current session. Subject to server-side limits.",
+        "requestBody": {
+          "type": "object",
+          "properties": { "session_id": { "type": "string", "format": "uuid" } },
+          "required": ["session_id"]
+        },
+        "successResponse": {
+          "statusCode": 200,
+          "body": {
+            "extended": true,
+            "new_duration_seconds": 300,
+            "extensions_remaining": 1
+          }
+        },
+        "errorResponse": {
+          "statusCode": 403,
+          "body": { "extended": false, "error": "No extensions remaining." }
+        }
+      },
+      {
+        "path": "/session/end",
+        "method": "POST",
+        "description": "Logs the end of a session, either by user action or timer expiration.",
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "session_id": { "type": "string", "format": "uuid" },
+            "reason": { "type": "string", "enum": ["user_closed", "timer_expired", "transition_tool_completed"] }
+          },
+          "required": ["session_id", "reason"]
+        },
+        "successResponse": { "statusCode": 204 },
+        "errorResponse": { "statusCode": 404, "body": { "error": "Session not found." } }
+      },
+      {
+        "path": "/experience/recommend",
+        "method": "GET",
+        "description": "Satiation detector endpoint. Analyzes recent activity and recommends a category shift.",
+        "queryParams": [
+          { "name": "session_history", "description": "Comma-separated list of recent experience categories, e.g., 'Microgame,Microgame,Microgame'" }
+        ],
+        "successResponse": {
+          "statusCode": 200,
+          "body": {
+            "should_recommend": true,
+            "recommended_category": "RelaxMode",
+            "reason": "Repetitive category consumption detected."
+          }
+        },
+        "errorResponse": { "statusCode": 400, "body": { "error": "Invalid session_history format." } }
+      }
+    ],
+    "webSocketEvents": {
+      "description": "WebSocket flow for Social Mutual Challenges. All messages are JSON objects with 'event' and 'payload' keys.",
+      "handshakeFlow": [
+        "1. Client A sends 'challenge.invite' with { opponent_id, experience_id }.",
+        "2. Server creates a challenge room, sends 'challenge.pending' to Client B with { inviter_id, experience_id }.",
+        "3. Client B sends 'challenge.accept' with { room_id }.",
+        "4. Server sends 'challenge.ready_check' to both clients in the room.",
+        "5. Both clients must send 'challenge.confirm_ready' within 5 seconds.",
+        "6. If both confirm, Server sends 'challenge.start' with { start_timestamp_utc }.",
+        "7. If timeout or one declines, Server sends 'challenge.cancelled'."
+      ],
+      "antiAbuse": "Server must rate-limit invites per user. A reporting mechanism on the challenge result screen should trigger a server-side event for review."
+    }
+  },
+  "dbSchema": {
+    "users": {
+      "description": "Additions to the existing users table.",
+      "columns": [
+        { "name": "novelty_tokens", "type": "INTEGER", "default": 10 },
+        { "name": "last_token_regen_ts", "type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP" }
+      ]
+    },
+    "sessions": {
+      "description": "New table to track intentional user sessions.",
+      "columns": [
+        { "name": "session_id", "type": "UUID", "constraints": "PRIMARY KEY" },
+        { "name": "user_id", "type": "UUID", "constraints": "FOREIGN KEY (users.user_id)" },
+        { "name": "start_ts", "type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP" },
+        { "name": "end_ts", "type": "TIMESTAMP" },
+        { "name": "start_type", "type": "VARCHAR(10)", "constraints": "CHECK(start_type IN ('intent', 'passive'))" },
+        { "name": "user_intent", "type": "TEXT" },
+        { "name": "extensions_used", "type": "INTEGER", "default": 0 }
+      ]
+    },
+    "skill_xp": {
+      "description": "Tracks a user's accumulated XP in different skill categories.",
+      "columns": [
+        { "name": "user_id", "type": "UUID" },
+        { "name": "skill_enum", "type": "VARCHAR(50)" },
+        { "name": "total_xp", "type": "INTEGER", "default": 0 }
+      ],
+      "constraints": "PRIMARY KEY (user_id, skill_enum)"
+    },
+    "badges": {
+      "description": "Static definitions for all available badges.",
+      "columns": [
+        { "name": "badge_id", "type": "VARCHAR(50)", "constraints": "PRIMARY KEY" },
+        { "name": "name", "type": "VARCHAR(100)" },
+        { "name": "description", "type": "TEXT" },
+        { "name": "artwork_description", "type": "TEXT", "description": "A prompt for an image generator or artist, e.g., 'A glowing brain with circuitry patterns, minimalist.'" }
+      ]
+    },
+    "user_badges": {
+      "description": "Join table indicating which users have earned which badges.",
+      "columns": [
+        { "name": "user_id", "type": "UUID" },
+        { "name": "badge_id", "type": "VARCHAR(50)" },
+        { "name": "earned_ts", "type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP" }
+      ],
+      "constraints": "PRIMARY KEY (user_id, badge_id)"
+    }
+  },
+  "analyticsEvents": [
+    {
+      "eventName": "session_started",
+      "description": "Fired when a new session is created after the Intent Gate.",
+      "payloadSchema": {
+        "start_type": "intent | passive",
+        "user_intent": "string"
+      }
+    },
+    {
+      "eventName": "session_extended",
+      "description": "Fired when a user successfully extends a timed session.",
+      "payloadSchema": {
+        "session_id": "uuid",
+        "extension_count_so_far": "integer"
+      }
+    },
+    {
+      "eventName": "session_ended",
+      "description": "Fired when a session concludes for any reason.",
+      "payloadSchema": {
+        "session_id": "uuid",
+        "duration_seconds": "integer",
+        "reason": "user_closed | timer_expired | limit_reached"
+      }
+    },
+    {
+      "eventName": "novelty_token_spent",
+      "description": "Fired when a user plays an experience that costs a novelty token.",
+      "payloadSchema": {
+        "experience_id": "string",
+        "cost": "integer",
+        "tokens_remaining": "integer"
+      }
+    },
+    {
+      "eventName": "satiation_nudge_shown",
+      "description": "Fired when the satiation engine recommends a category shift.",
+      "payloadSchema": {
+        "from_category": "string",
+        "to_category": "string",
+        "trigger_history": "array of strings"
+      }
+    },
+    {
+      "eventName": "satiation_nudge_accepted",
+      "description": "Fired when the user clicks on the recommended category from the nudge.",
+      "payloadSchema": {
+        "from_category": "string",
+        "to_category": "string"
+      }
+    },
+    {
+      "eventName": "badge_earned",
+      "description": "Fired when a user meets the criteria for a new badge.",
+      "payloadSchema": {
+        "badge_id": "string",
+        "source_experience_id": "string"
+      }
+    },
+    {
+      "eventName": "boredom_exercise_completed",
+      "description": "Fired when user confirms completion of a boredom tolerance exercise.",
+      "payloadSchema": { "exercise_id": "string" }
+    }
+  ],
+  "rulesAndPseudocode": {
+    "noveltyBudgetRegen": {
+      "description": "Server-side cron job, runs hourly.",
+      "pseudocode": "FUNCTION regen_tokens_job():\n  users_to_update = SELECT * FROM users WHERE last_token_regen_ts < (NOW() - 1 HOUR)\n  FOR user IN users_to_update:\n    hours_since_last_regen = (NOW() - user.last_token_regen_ts) / 3600\n    tokens_to_add = FLOOR(hours_since_last_regen / 4)  // 1 token every 4 hours\n    IF tokens_to_add > 0:\n      user.novelty_tokens = MIN(10, user.novelty_tokens + tokens_to_add)\n      user.last_token_regen_ts = NOW()\n      UPDATE user IN database"
+    },
+    "satiationDetector": {
+      "description": "Simple rule-based algorithm, can be called via the API.",
+      "pseudocode": "FUNCTION detect_satiation(history: Array<String>):\n  IF history.length < 3:\n    RETURN { should_recommend: false }\n  last_three = history.slice(-3)\n  first_category = last_three[0]\n  IF all items in last_three are equal to first_category:\n    // Simple complementary category logic\n    IF first_category is 'Microgame' or 'SocialDuel':\n      recommendation = 'RelaxMode'\n    ELSE IF first_category is 'MicroCreation':\n      recommendation = 'CuriosityBites'\n    ELSE:\n      recommendation = 'Microgame'\n    RETURN { should_recommend: true, recommended_category: recommendation }\n  ELSE:\n    RETURN { should_recommend: false }"
+    },
+    "rewardConsolidation": {
+      "description": "Server-side cron job, runs daily at midnight user's local time.",
+      "pseudocode": "FUNCTION consolidate_daily_rewards_job():\n  FOR each user:\n    rewards_today = SELECT xp, badges FROM activity_log WHERE user_id = user.id AND timestamp > 24h ago\n    IF rewards_today is not empty:\n      total_xp = SUM(rewards_today.xp)\n      new_badges = rewards_today.badges\n      CREATE daily_chest for user with { xp: total_xp, badges: new_badges, date: TODAY }\n      DELETE processed entries from activity_log"
+    }
+  },
+  "sampleManifests": [
+    {
+      "id": "mg_1_v2", "category": "Microgame", "title": "Dot Dodger", "subtitle": "Tap the dot, fast!", "duration": 15, "instructions": "A red dot will appear on the screen. Tap it as many times as you can before the time runs out.", "shareText": "I scored {score} points in Dot Dodger!",
+      "novelty_cost": 1,
+      "skill_xp_award": { "focus": 10, "reflexes": 15 },
+      "safety_flags": []
+    },
+    {
+      "id": "mg_2_v2", "category": "Microgame", "title": "Rhythm Tap", "subtitle": "Follow the beat", "duration": 30, "instructions": "Shapes will appear in sync with a beat. Tap them at the right moment to score points.", "shareText": "I got a high score of {score} in Rhythm Tap!",
+      "novelty_cost": 1,
+      "skill_xp_award": { "focus": 20, "rhythm": 25 },
+      "safety_flags": ["photosensitivity_warning"]
+    },
+    {
+      "id": "mc_1_v2", "category": "Micro-creation", "title": "Quick Doodle", "subtitle": "Draw something cool", "duration": 60, "instructions": "You have 60 seconds to draw a masterpiece. Let your creativity flow!", "shareText": "Check out my quick doodle!",
+      "novelty_cost": 2,
+      "skill_xp_award": { "creativity": 30 },
+      "safety_flags": []
+    },
+    {
+      "id": "mc_2_v2", "category": "Micro-creation", "title": "Haiku Composer", "subtitle": "5-7-5 syllables", "duration": 90, "instructions": "Write a haiku (a three-line poem with a 5, 7, 5 syllable structure) about your current mood.", "shareText": "My latest haiku creation!",
+      "novelty_cost": 1,
+      "skill_xp_award": { "creativity": 25, "writing": 15 },
+      "safety_flags": []
+    },
+    {
+      "id": "mch_1_v2", "category": "Micro-challenge", "title": "Stand Up & Stretch", "subtitle": "A healthy break", "duration": 30, "challenge": "Stand up and do a 30-second stretch.", "instructions": "Take a quick break from your screen. Stand up, reach for the sky, and stretch your body. You deserve it!", "shareText": "I just completed the Stand Up & Stretch challenge. Feeling refreshed!",
+      "novelty_cost": 0,
+      "skill_xp_award": { "wellness": 20, "discipline": 5 },
+      "safety_flags": ["physical_activity"]
+    },
+    {
+      "id": "mch_boredom_1", "category": "Micro-challenge", "title": "Boredom Tolerance", "subtitle": "The 'Just Be' Challenge", "duration": 60, "challenge": "Sit still for 60 seconds without any digital input. Just observe your thoughts.", "instructions": "Find a comfortable seated position. Start the timer, close your eyes, and simply notice your thoughts and feelings without judgment. Don't check your phone or do anything else. When the timer is done, confirm you completed it.", "shareText": "I practiced sitting with my thoughts for a full minute.",
+      "novelty_cost": 0,
+      "skill_xp_award": { "mindfulness": 30, "discipline": 10 },
+      "safety_flags": []
+    },
+    {
+      "id": "sd_1_v2", "category": "Social Duel", "title": "Trivia Battle", "subtitle": "vs a random opponent", "duration": 20, "instructions": "Answer the trivia question faster than your opponent.", "question": "What is the capital of France?", "options": ["Berlin", "Paris"], "correctOption": 1, "shareText": "I won a Trivia Battle!",
+      "novelty_cost": 1,
+      "skill_xp_award": { "knowledge": 15 },
+      "safety_flags": []
+    },
+    {
+      "id": "sd_2_v2", "category": "Social Duel", "title": "Would You Rather?", "subtitle": "A classic dilemma", "duration": 20, "instructions": "Choose the option you prefer. See how your choice compares to the popular vote.", "question": "Would you rather be able to fly or be invisible?", "options": ["Fly", "Be Invisible"], "correctOption": 0, "shareText": "I chose flying over being invisible. What would you pick?",
+      "novelty_cost": 0,
+      "skill_xp_award": { "social_reasoning": 10 },
+      "safety_flags": []
+    },
+    {
+      "id": "rm_1_v2", "category": "Relax Mode", "title": "Deep Breaths", "subtitle": "Just chill", "duration": 60, "instructions": "Follow the on-screen guide. Inhale as the orb expands, hold, and exhale as it contracts. Repeat for one minute.", "shareText": "Took a minute to just breathe. Highly recommend it.",
+      "novelty_cost": 0,
+      "skill_xp_award": { "mindfulness": 25 },
+      "safety_flags": []
+    },
+    {
+      "id": "rm_3_v2", "category": "Relax Mode", "title": "Ambient Forest", "subtitle": "Sounds of nature", "duration": 120, "instructions": "Close your eyes and listen to the calming sounds of a forest. Birds chirping, leaves rustling...", "shareText": "Just took a 2-minute vacation to a peaceful forest.",
+      "novelty_cost": 0,
+      "skill_xp_award": { "mindfulness": 30 },
+      "safety_flags": []
+    }
+  ]
+}

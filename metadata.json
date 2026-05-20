@@ -1,0 +1,8 @@
+{
+  "name": "PocketPlayground",
+  "description": "An infinite feed of 30-120 second micro-experiences designed for quick entertainment. Explore games, creative tools, challenges, social duels, fun facts, and relaxation modes.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

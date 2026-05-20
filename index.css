@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Centralized animation utility classes */
+.anim-pop-in {
+	animation-name: popIn;
+	animation-duration: var(--anim-duration, 0.7s);
+	animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+	animation-delay: var(--anim-delay, 0s);
+	animation-fill-mode: forwards;
+}
+
+.anim-slide-up {
+	animation-name: slideInUp;
+	animation-duration: var(--anim-duration, 0.7s);
+	animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+	animation-delay: var(--anim-delay, 0s);
+	animation-fill-mode: forwards;
+}
+
+.anim-logo-intro {
+	animation-name: logo-intro;
+	animation-duration: var(--anim-duration, 0.8s);
+	animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+	animation-delay: var(--anim-delay, 0.2s);
+	animation-fill-mode: forwards;
+}
+
+.anim-fade-in { animation: fadeIn var(--anim-duration, 0.5s) ease-out var(--anim-delay, 0s) forwards; }
+.anim-fade-in-scale { animation: fadeInAndScale var(--anim-duration, 0.5s) ease-out var(--anim-delay, 0s) forwards; }
+.anim-fade-out-scale { animation: fadeOutAndScale var(--anim-duration, 0.4s) ease-in var(--anim-delay, 0s) forwards; }
+
+.anim-pulse {
+	animation-name: pulse;
+	animation-duration: var(--anim-duration, 2s);
+	animation-iteration-count: infinite;
+}
+
+.animate-shimmer { background-size: 200% auto; animation: shimmer 4s linear infinite; }
+.animate-text-gradient { animation: text-gradient-anim 3s linear infinite; }
+
+/* Global animation kill-switch for debugging */
+.no-anim, .no-anim * { transition: none !important; }
+.no-anim .anim-pop-in,
+.no-anim .anim-slide-up,
+.no-anim .anim-logo-intro,
+.no-anim .anim-fade-in,
+.no-anim .anim-fade-in-scale,
+.no-anim .anim-fade-out-scale,
+.no-anim .anim-pulse,
+.no-anim .animate-shimmer,
+.no-anim .animate-text-gradient { animation: none !important; }
+.no-anim .anim-pop-in,
+.no-anim .anim-slide-up,
+.no-anim .anim-logo-intro,
+.no-anim .anim-fade-in,
+.no-anim .anim-fade-in-scale { opacity: 1 !important; transform: none !important; }
