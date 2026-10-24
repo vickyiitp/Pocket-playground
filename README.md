@@ -1,20 +1,28 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+
+# 🎮 Pocket Playground — Cognitive Focus & Relaxation Hub
+### High-Performance Web Games Engine for Stress Relief & Mental Agility
+
+[![Vite](https://img.shields.io/badge/Vite-Fast%20Bundler-646CFF?style=for-the-badge&logo=vite)](https://vitejs.dev/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
+[![Architect](https://img.shields.io/badge/Architect-Vicky%20Kumar-8b5cf6?style=for-the-badge&logo=github)](https://github.com/vickyiitp)
+
 </div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## 🕹️ Highlights
 
-View your app in AI Studio: https://ai.studio/apps/drive/1YZ1lnhRvaMAw7dDjEylULaVjXUZv8gL0
+- 🧠 **Cognitive Mini-Games Suite**: Memory puzzles, reaction speed testers, and kinetic relaxation loops.
+- ⚡ **Zero-Lag 60 FPS Execution**: Optimized HTML5 Canvas and React state management for fluid gameplay.
+- 🌙 **Atmospheric Soundscapes**: Built-in procedural audio synthesizers and soothing ambient music loops.
 
-## Run Locally
+```bash
+git clone https://github.com/vickyiitp/Pocket-playground.git
+cd Pocket-playground
+npm install
+npm run dev
+```
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Built by **Vicky Kumar** @ [Devil Labs](https://devillabs.dev)
